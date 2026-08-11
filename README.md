@@ -1,14 +1,27 @@
 # DevTrack: Version Control & Developer Productivity Dashboard
 
-DevTrack is a developer productivity and version control platform designed to help teams and individuals track code changes, manage work schedules, and monitor daily progress in a single unified view.
+**DevTrack** (CLI: `trackit`) is a lightweight developer productivity and version control auditing tool. It integrates local Git repositories with a centralized SQL backend to track commit frequency, active coding hours, modified files, and scheduled tasks.
 
-## Core Features
-* **Version History & Audit Trail:** Automatic snapshots with exact timestamps for pre- and post-modified code states.
-* **Commit Analytics & Work Graph:** Daily, weekly, and monthly productivity visual graphs.
-* **Work Scheduling:** Task allocation and planned commit workflows.
-* **Smart Reminders:** Automated alerts for upcoming task deadlines.
+---
 
-## Tech Stack
-* **Backend:** Python
-* **Database:** SQL
-* **Dashboard:** Power BI / React
+## 🚀 Features
+
+- **Automated Commit Tracking:** Parses local `git log` output to extract commit timestamps and touched files.
+- **Active Time Estimation:** Automatically calculates developer focus time based on commit gaps and session duration.
+- **File-Level Auditing:** Deep-dive analysis into specific project files over custom date ranges.
+- **SQL Analytics Integration:** Store developer performance metrics, work schedules, and task reminders for Power BI or React dashboards.
+
+---
+
+## 🛠️ Installation & Setup
+
+### 1. Prerequisites
+- Python 3.9+
+- PostgreSQL or MySQL database
+- Git installed and configured locally
+
+### 2. Dependencies
+Install required Python packages:
+
+```bash
+pip install typer rich

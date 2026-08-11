@@ -120,9 +120,25 @@ def analyze(
     print(f"\n[bold blue]🔍 Analyzing File:[/] [bold]{file}[/] for [yellow]{date_label}[/yellow]")
     print("-" * 55)
 
-    print(f"• 09:15 AM - {file} [dim](Est. 30m)[/] - Initial structure setup")
-    print(f"• 10:00 AM - {file} [dim](Est. 45m)[/] - Fixed validation bug\n")
+    since_str = start_date.strftime("%Y-%m-%d 00:00:00")
+    until_str = (end_date + timedelta(days=1)).strftime("%Y-%m-%d 00:00:00")
+
+    cmd = [
+        "git", "log",
+        f"--since={since_str}",
+        f"--until={until_str}",
+        "--format=- %ad - %s",
+        "--date=format:%I:%M %p",
+        "--", file
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+
+    if result.stdout.strip():
+        print(result.stdout)
+    else:
+        print(f"No commit history found for {file} on {date_label}.")
 
 
-if __name__ == "__main_":
+if __name__ == "__main__":
     app()
