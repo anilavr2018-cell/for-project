@@ -1,72 +1,52 @@
----
+-- new.sql
+-- TrackIt CLI - Database Schema for Git Commit Audit Tracking
 
-```sql
--- DevTrack Database Schema (`new.sql` / `schema.sql`)
-
--- 1. Developers Table
-CREATE TABLE IF NOT EXISTS developers (
-    developer_id SERIAL PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    full_name VARCHAR(100) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 2. Projects Table
-CREATE TABLE IF NOT EXISTS projects (
-    project_id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    repo_url VARCHAR(255),
-    description TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 3. Daily Summary / Audit Logs
-CREATE TABLE IF NOT EXISTS daily_work_audits (
-    audit_id SERIAL PRIMARY KEY,
-    developer_id INT REFERENCES developers(developer_id) ON DELETE CASCADE,
-    project_id INT REFERENCES projects(project_id) ON DELETE CASCADE,
-    work_date DATE NOT NULL,
-    total_commits INT DEFAULT 0,
-    estimated_active_minutes INT DEFAULT 0,
-    files_touched_count INT DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT unique_dev_project_date UNIQUE (developer_id, project_id, work_date)
-);
-
--- 4. Commit History & File Tracking
-CREATE TABLE IF NOT EXISTS commit_logs (
-    commit_id SERIAL PRIMARY KEY,
-    project_id INT REFERENCES projects(project_id) ON DELETE CASCADE,
-    developer_id INT REFERENCES developers(developer_id) ON DELETE CASCADE,
+-- 1. Commits Table
+CREATE TABLE IF NOT EXISTS commits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     commit_hash VARCHAR(40) UNIQUE NOT NULL,
-    commit_timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+    author_name VARCHAR(255),
     commit_message TEXT,
-    files_changed TEXT[], -- List of touched file paths
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    committed_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 5. Work Schedules & Tasks
-CREATE TABLE IF NOT EXISTS work_schedules (
-    schedule_id SERIAL PRIMARY KEY,
-    developer_id INT REFERENCES developers(developer_id) ON DELETE CASCADE,
-    project_id INT REFERENCES projects(project_id) ON DELETE CASCADE,
-    task_title VARCHAR(200) NOT NULL,
-    planned_date DATE NOT NULL,
-    status VARCHAR(20) DEFAULT 'Pending' CHECK (status IN ('Pending', 'In Progress', 'Completed', 'Deferred')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+-- 2. Tracked Files Table
+CREATE TABLE IF NOT EXISTS files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    file_path VARCHAR(500) UNIQUE NOT NULL
 );
 
--- 6. Task Reminders
-CREATE TABLE IF NOT EXISTS task_reminders (
-    reminder_id SERIAL PRIMARY KEY,
-    schedule_id INT REFERENCES work_schedules(schedule_id) ON DELETE CASCADE,
-    reminder_time TIMESTAMP WITH TIME ZONE NOT NULL,
-    is_triggered BOOLEAN DEFAULT FALSE,
-    message VARCHAR(255) NOT NULL
+-- 3. Junction Table: Links commits to the files touched
+CREATE TABLE IF NOT EXISTS commit_files (
+    commit_id INTEGER NOT NULL,
+    file_id INTEGER NOT NULL,
+    PRIMARY KEY (commit_id, file_id),
+    FOREIGN KEY (commit_id) REFERENCES commits(id) ON DELETE CASCADE,
+    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
 );
 
--- Indexes for performance on analytics queries
-CREATE INDEX IF NOT EXISTS idx_commit_logs_date ON commit_logs(commit_timestamp);
-CREATE INDEX IF NOT EXISTS idx_audits_date ON daily_work_audits(work_date);
-CREATE INDEX IF NOT EXISTS idx_schedules_date ON work_schedules(planned_date);
+-- 4. Daily Work Audits Table (Caches the calculated summary metrics)
+CREATE TABLE IF NOT EXISTS daily_audits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    audit_date DATE UNIQUE NOT NULL,
+    total_commits INTEGER DEFAULT 0,
+    est_active_minutes INTEGER DEFAULT 0,
+    files_touched_count INTEGER DEFAULT 0,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for optimal lookup speeds on CLI searches
+CREATE INDEX IF NOT EXISTS idx_commits_committed_at ON commits(committed_at);
+CREATE INDEX IF NOT EXISTS idx_files_path ON files(file_path);
+CREATE INDEX IF NOT EXISTS idx_audits_date ON daily_audits(audit_date);
+
+-- View: Quick Daily Work Summary matching the CLI output
+CREATE VIEW IF NOT EXISTS v_daily_summary AS
+SELECT 
+    DATE(c.committed_at) AS work_date,
+    COUNT(DISTINCT c.id) AS total_commits,
+    COUNT(DISTINCT cf.file_id) AS total_files_touched
+FROM commits c
+LEFT JOIN commit_files cf ON c.id = cf.commit_id
+GROUP BY DATE(c.committed_at);
